@@ -12,6 +12,7 @@ This is a simple Puyo Puyo game built with React. It is ready to be deployed as 
    ```bash
    npm start
    ```
+   The game automatically starts when you access the root URL (`/`).
 
 ## Testing
 Run the React test suite with:
