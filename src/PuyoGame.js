@@ -25,6 +25,8 @@ function createPiece() {
 function PuyoGame() {
   const [board, setBoard] = useState(() => Array.from({ length: ROWS }, () => Array(COLS).fill(null)));
   const [piece, setPiece] = useState(createPiece());
+  const [nextPieces, setNextPieces] = useState(() => [createPiece(), createPiece()]);
+  const [clearingCells, setClearingCells] = useState([]);
   const [score, setScore] = useState(0);
   const gameOverRef = useRef(false);
 
@@ -40,7 +42,8 @@ function PuyoGame() {
         movePiece(-1, 0);
       } else if (e.key === 'ArrowRight') {
         movePiece(1, 0);
-      } else if (e.key === 'ArrowUp') {
+      } else if (e.code === 'Space') {
+        e.preventDefault();
         rotatePiece();
       } else if (e.key === 'ArrowDown') {
         dropPiece();
@@ -94,15 +97,17 @@ function PuyoGame() {
     }
     newBoard[piece.pivot.y][piece.pivot.x] = piece.pivot.color;
     newBoard[piece.second.y][piece.second.x] = piece.second.color;
-    clearMatches(newBoard);
-    setBoard(newBoard);
-    setPiece(createPiece());
+    dropAll(newBoard);
+    processClears(newBoard);
+    const [next1, next2] = nextPieces;
+    setPiece(next1);
+    setNextPieces([next2, createPiece()]);
   };
 
-  const clearMatches = (b) => {
+  const findMatches = (b) => {
     const visited = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
-    let cleared = 0;
     const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    const toClear = [];
     for (let y=0; y<ROWS; y++) {
       for (let x=0; x<COLS; x++) {
         if (!b[y][x] || visited[y][x]) continue;
@@ -121,15 +126,27 @@ function PuyoGame() {
           });
         }
         if(group.length>=4){
-          cleared += group.length;
-          group.forEach(([gx,gy]) => { b[gy][gx]=null; });
+          toClear.push(...group);
         }
       }
     }
-    if(cleared>0){
-      dropAll(b);
-      setScore(s => s + cleared);
+    return toClear;
+  };
+
+  const processClears = (b) => {
+    const matches = findMatches(b);
+    setBoard(b.map(row => row.slice()));
+    if(matches.length === 0){
+      return;
     }
+    setClearingCells(matches);
+    setTimeout(() => {
+      matches.forEach(([gx,gy]) => { b[gy][gx]=null; });
+      dropAll(b);
+      setScore(s => s + matches.length);
+      setClearingCells([]);
+      processClears(b);
+    }, 300);
   };
 
   const dropAll = (b) => {
@@ -151,8 +168,18 @@ function PuyoGame() {
     const isPivot = piece.pivot.x===x && piece.pivot.y===y;
     const isSecond = piece.second.x===x && piece.second.y===y;
     const color = isPivot ? piece.pivot.color : isSecond ? piece.second.color : c;
-    return <div key={`${x}-${y}`} className={`cell ${color||''}`}></div>;
+    const clearing = clearingCells.some(([cx,cy]) => cx===x && cy===y);
+    return <div key={`${x}-${y}`} className={`cell ${color||''} ${clearing?'clearing':''}`}></div>;
   }));
+
+  const nextCells = nextPieces.map((np,idx)=>{
+    return (
+      <div key={idx} className="next-piece">
+        <div className={`cell ${np.pivot.color}`}></div>
+        <div className={`cell ${np.second.color}`}></div>
+      </div>
+    );
+  });
 
   return (
     <div className="puyo-wrapper">
@@ -160,6 +187,7 @@ function PuyoGame() {
       <div className="board" style={{gridTemplateColumns:`repeat(${COLS},1fr)`}}>
         {cells}
       </div>
+      <div className="next-pieces">{nextCells}</div>
       <p>Score: {score}</p>
       {gameOverRef.current && <p>Game Over</p>}
     </div>
