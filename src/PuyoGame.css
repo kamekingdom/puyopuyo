@@ -1,5 +1,7 @@
+
 .puyo-wrapper {
   text-align: center;
+  position: relative;
 }
 
 .board {
@@ -7,12 +9,14 @@
   width: 240px;
   margin: 0 auto;
   border: 2px solid #333;
+  box-sizing: border-box;
 }
 
 .cell {
   width: 40px;
   height: 40px;
   border: 1px solid #aaa;
+  box-sizing: border-box;
 }
 
 .cell.red { background: #ff6666; }
@@ -21,14 +25,21 @@
 .cell.yellow { background: #ffee66; }
 
 .next-pieces {
+  position: absolute;
+  top: 0;
+  right: 0;
   display: flex;
-  justify-content: center;
-  margin: 10px 0;
+  flex-direction: column;
+  align-items: center;
 }
 
 .next-piece .cell {
   width: 20px;
   height: 20px;
+}
+
+.controls {
+  margin-bottom: 10px;
 }
 
 @keyframes fadeOut {
