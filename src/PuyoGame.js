@@ -4,7 +4,7 @@ import { initFirebase } from './firebase';
 
 const COLS = 6;
 const ROWS = 12;
-const COLORS = ['red', 'green', 'blue', 'yellow'];
+const BASE_COLORS = ['red', 'green', 'blue', 'yellow'];
 
 const offsets = [
   { x: 0, y: -1 },
@@ -13,22 +13,31 @@ const offsets = [
   { x: -1, y: 0 },
 ];
 
-function createPiece() {
-  const pivot = { x: 2, y: 0, color: COLORS[Math.floor(Math.random() * COLORS.length)] };
+function createPiece(colors) {
+  const pivot = { x: 2, y: 0, color: colors[Math.floor(Math.random() * colors.length)] };
   const orientation = 2; // piece starts vertical with second below pivot
-  const second = { ...pivot, color: COLORS[Math.floor(Math.random() * COLORS.length)] };
+  const second = { ...pivot, color: colors[Math.floor(Math.random() * colors.length)] };
   second.x += offsets[orientation].x;
   second.y += offsets[orientation].y;
   return { pivot, second, orientation };
 }
 
 function PuyoGame() {
+  const [colorCount, setColorCount] = useState(4);
+  const [speed, setSpeed] = useState(500);
+  const colors = BASE_COLORS.slice(0, colorCount);
   const [board, setBoard] = useState(() => Array.from({ length: ROWS }, () => Array(COLS).fill(null)));
-  const [piece, setPiece] = useState(createPiece());
-  const [nextPieces, setNextPieces] = useState(() => [createPiece(), createPiece()]);
+  const [piece, setPiece] = useState(() => createPiece(colors));
+  const [nextPieces, setNextPieces] = useState(() => [createPiece(colors), createPiece(colors)]);
   const [clearingCells, setClearingCells] = useState([]);
   const [score, setScore] = useState(0);
   const gameOverRef = useRef(false);
+  const nextPiecesRef = useRef([]);
+  const [isClearing, setIsClearing] = useState(false);
+
+  useEffect(() => {
+    nextPiecesRef.current = nextPieces;
+  }, [nextPieces]);
 
   useEffect(() => {
     const { db } = initFirebase();
@@ -55,10 +64,12 @@ function PuyoGame() {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      dropPiece();
-    }, 500);
+      if (!gameOverRef.current && !isClearing) {
+        dropPiece();
+      }
+    }, speed);
     return () => clearInterval(timer);
-  });
+  }, [speed, isClearing]);
 
   const movePiece = (dx, dy) => {
     if (canMove(piece.pivot.x + dx, piece.pivot.y + dy, piece.second.x + dx, piece.second.y + dy)) {
@@ -76,6 +87,7 @@ function PuyoGame() {
   };
 
   const dropPiece = () => {
+    if (isClearing) return;
     if (canMove(piece.pivot.x, piece.pivot.y + 1, piece.second.x, piece.second.y + 1)) {
       setPiece(p => ({ ...p, pivot: { ...p.pivot, y: p.pivot.y + 1 }, second: { ...p.second, y: p.second.y + 1 } }));
     } else {
@@ -98,10 +110,11 @@ function PuyoGame() {
     newBoard[piece.pivot.y][piece.pivot.x] = piece.pivot.color;
     newBoard[piece.second.y][piece.second.x] = piece.second.color;
     dropAll(newBoard);
-    processClears(newBoard);
-    const [next1, next2] = nextPieces;
-    setPiece(next1);
-    setNextPieces([next2, createPiece()]);
+    processClears(newBoard, () => {
+      const [next1, next2] = nextPiecesRef.current;
+      setPiece(next1);
+      setNextPieces([next2, createPiece(colors)]);
+    });
   };
 
   const findMatches = (b) => {
@@ -133,19 +146,24 @@ function PuyoGame() {
     return toClear;
   };
 
-  const processClears = (b) => {
+  const processClears = (b, done) => {
     const matches = findMatches(b);
     setBoard(b.map(row => row.slice()));
-    if(matches.length === 0){
+    if (matches.length === 0) {
+      setIsClearing(false);
+      if (done) done();
       return;
     }
+    setIsClearing(true);
     setClearingCells(matches);
     setTimeout(() => {
-      matches.forEach(([gx,gy]) => { b[gy][gx]=null; });
+      matches.forEach(([gx, gy]) => {
+        b[gy][gx] = null;
+      });
       dropAll(b);
       setScore(s => s + matches.length);
       setClearingCells([]);
-      processClears(b);
+      processClears(b, done);
     }, 300);
   };
 
@@ -181,9 +199,35 @@ function PuyoGame() {
     );
   });
 
+  const restartGame = () => {
+    gameOverRef.current = false;
+    const empty = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+    setBoard(empty);
+    const initialPiece = createPiece(colors);
+    const np = [createPiece(colors), createPiece(colors)];
+    setPiece(initialPiece);
+    setNextPieces(np);
+    setScore(0);
+    setClearingCells([]);
+    setIsClearing(false);
+  };
+
   return (
     <div className="puyo-wrapper">
       <h1>Puyo Puyo Game</h1>
+      <div className="controls">
+        <label>
+          Colors:
+          <select value={colorCount} onChange={e => setColorCount(parseInt(e.target.value, 10))}>
+            {[2,3,4].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+        <label>
+          Speed(ms):
+          <input type="number" value={speed} onChange={e => setSpeed(parseInt(e.target.value,10) || 0)} />
+        </label>
+        <button onClick={restartGame}>Restart</button>
+      </div>
       <div className="board" style={{gridTemplateColumns:`repeat(${COLS},1fr)`}}>
         {cells}
       </div>
