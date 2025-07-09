@@ -69,7 +69,7 @@ function PuyoGame() {
       }
     }, speed);
     return () => clearInterval(timer);
-  }, [speed, isClearing]);
+  }, [speed, isClearing, piece, board]);
 
   const movePiece = (dx, dy) => {
     if (canMove(piece.pivot.x + dx, piece.pivot.y + dy, piece.second.x + dx, piece.second.y + dy)) {
@@ -228,10 +228,12 @@ function PuyoGame() {
         </label>
         <button onClick={restartGame}>Restart</button>
       </div>
-      <div className="board" style={{gridTemplateColumns:`repeat(${COLS},1fr)`}}>
-        {cells}
+      <div className="board-container">
+        <div className="board" style={{gridTemplateColumns:`repeat(${COLS},1fr)`}}>
+          {cells}
+        </div>
+        <div className="next-pieces">{nextCells}</div>
       </div>
-      <div className="next-pieces">{nextCells}</div>
       <p>Score: {score}</p>
       {gameOverRef.current && <p>Game Over</p>}
     </div>
