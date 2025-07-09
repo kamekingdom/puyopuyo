@@ -19,3 +19,24 @@
 .cell.green { background: #66cc66; }
 .cell.blue { background: #6699ff; }
 .cell.yellow { background: #ffee66; }
+
+.next-pieces {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0;
+}
+
+.next-piece .cell {
+  width: 20px;
+  height: 20px;
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+  }
+}
+
+.cell.clearing {
+  animation: fadeOut 0.3s forwards;
+}
